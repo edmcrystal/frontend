@@ -38,7 +38,7 @@ export default function Home() {
     abortRef.current = controller;
 
     try {
-      const eventSource = new EventSourcePolyfill("http://localhost:8000/v1/chat/completions/sse?stream=true", {
+      const eventSource = EventSourcePolyfill("https://dev.jarvis.edmcrystal.com/test2/v1/chat/completions/sse?stream=true", {
         headers: {},
         payload: JSON.stringify({
           model: "gpt-3.5-turbo",
@@ -87,70 +87,6 @@ export default function Home() {
     }
   };
 
-  // Polyfill for EventSource with POST support (for demo, use fetch+SSE in production)
-  function EventSourcePolyfill(url: string, opts: any) {
-    // Only for demo: use fetch and parse SSE manually
-    const { payload, signal, csrfToken } = opts;
-    const eventTarget = new EventTarget();
-
-    // Create a proxy object to hold the onmessage/onerror properties
-    const eventSourceProxy = {
-      onmessage: null as ((event: MessageEvent) => void) | null,
-      onerror: null as ((event: any) => void) | null,
-      close: () => { },
-      addEventListener: eventTarget.addEventListener.bind(eventTarget),
-      removeEventListener: eventTarget.removeEventListener.bind(eventTarget),
-      dispatchEvent: eventTarget.dispatchEvent.bind(eventTarget),
-    };
-
-    // Add internal listeners to trigger the properties
-    eventTarget.addEventListener("message", (e: any) => {
-      if (eventSourceProxy.onmessage) {
-        eventSourceProxy.onmessage(e);
-      }
-    });
-    eventTarget.addEventListener("error", (e: any) => {
-      if (eventSourceProxy.onerror) {
-        eventSourceProxy.onerror(e);
-      }
-    });
-
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (csrfToken) {
-      headers["X-CSRF-TOKEN"] = csrfToken;
-    }
-
-    fetch(url.replace("/sse", ""), {
-      method: "POST",
-      headers: headers,
-      body: payload,
-      signal,
-    })
-      .then(async (res) => {
-        if (!res.body) throw new Error("No response body");
-        const reader = res.body.getReader();
-        let buffer = "";
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buffer += new TextDecoder().decode(value);
-          let idx;
-          while ((idx = buffer.indexOf("\n\n")) !== -1) {
-            const chunk = buffer.slice(0, idx);
-            buffer = buffer.slice(idx + 2);
-            if (chunk.startsWith("data: ")) {
-              const data = chunk.slice(6);
-              eventTarget.dispatchEvent(new MessageEvent("message", { data }));
-            }
-          }
-        }
-      })
-      .catch((err) => {
-        eventTarget.dispatchEvent(new Event("error"));
-      });
-
-    return eventSourceProxy;
-  }
 
   return (
     <div className={styles.page}>
@@ -184,4 +120,69 @@ export default function Home() {
       </main>
     </div>
   );
+}
+
+// Polyfill for EventSource with POST support (for demo, use fetch+SSE in production)
+function EventSourcePolyfill(url: string, opts: any) {
+  // Only for demo: use fetch and parse SSE manually
+  const { payload, signal, csrfToken } = opts;
+  const eventTarget = new EventTarget();
+
+  // Create a proxy object to hold the onmessage/onerror properties
+  const eventSourceProxy = {
+    onmessage: null as ((event: MessageEvent) => void) | null,
+    onerror: null as ((event: any) => void) | null,
+    close: () => { },
+    addEventListener: eventTarget.addEventListener.bind(eventTarget),
+    removeEventListener: eventTarget.removeEventListener.bind(eventTarget),
+    dispatchEvent: eventTarget.dispatchEvent.bind(eventTarget),
+  };
+
+  // Add internal listeners to trigger the properties
+  eventTarget.addEventListener("message", (e: any) => {
+    if (eventSourceProxy.onmessage) {
+      eventSourceProxy.onmessage(e);
+    }
+  });
+  eventTarget.addEventListener("error", (e: any) => {
+    if (eventSourceProxy.onerror) {
+      eventSourceProxy.onerror(e);
+    }
+  });
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (csrfToken) {
+    headers["X-CSRF-TOKEN"] = csrfToken;
+  }
+
+  fetch(url.replace("/sse", ""), {
+    method: "POST",
+    headers: headers,
+    body: payload,
+    signal,
+  })
+    .then(async (res) => {
+      if (!res.body) throw new Error("No response body");
+      const reader = res.body.getReader();
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += new TextDecoder().decode(value);
+        let idx;
+        while ((idx = buffer.indexOf("\n\n")) !== -1) {
+          const chunk = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          if (chunk.startsWith("data: ")) {
+            const data = chunk.slice(6);
+            eventTarget.dispatchEvent(new MessageEvent("message", { data }));
+          }
+        }
+      }
+    })
+    .catch((err) => {
+      eventTarget.dispatchEvent(new Event("error"));
+    });
+
+  return eventSourceProxy;
 }
