@@ -1,6 +1,6 @@
 
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import styles from "./page.module.css";
 
 type Message = {
@@ -13,7 +13,17 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/api/csrf-token")
+      .then((res) => {
+        const token = res.headers.get("X-CSRF-Token");
+        if (token) setCsrfToken(token);
+      })
+      .catch((err) => console.error("Failed to fetch CSRF token", err));
+  }, []);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +47,7 @@ export default function Home() {
         }),
         method: "POST",
         signal: controller.signal,
+        csrfToken,
       });
 
       let assistantMsg = "";
@@ -79,7 +90,7 @@ export default function Home() {
   // Polyfill for EventSource with POST support (for demo, use fetch+SSE in production)
   function EventSourcePolyfill(url: string, opts: any) {
     // Only for demo: use fetch and parse SSE manually
-    const { payload, signal } = opts;
+    const { payload, signal, csrfToken } = opts;
     const eventTarget = new EventTarget();
 
     // Create a proxy object to hold the onmessage/onerror properties
@@ -104,9 +115,14 @@ export default function Home() {
       }
     });
 
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (csrfToken) {
+      headers["X-CSRF-TOKEN"] = csrfToken;
+    }
+
     fetch(url.replace("/sse", ""), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: headers,
       body: payload,
       signal,
     })
