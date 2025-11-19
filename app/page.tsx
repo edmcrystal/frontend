@@ -41,12 +41,11 @@ export default function Home() {
 
       let assistantMsg = "";
       eventSource.onmessage = (event: MessageEvent) => {
-        // if (event.data === "[DONE]") {
-        //   setMessages((prev) => [...prev, { role: "user", content: assistantMsg }]);
-        //   setLoading(false);
-        //   eventSource.close();
-        //   return;
-        //}
+        if (event.data === "[DONE]") {
+          setLoading(false);
+          eventSource.close();
+          return;
+        }
         try {
           const data = JSON.parse(event.data);
           console.log("Received data:", data);
@@ -55,10 +54,11 @@ export default function Home() {
           console.log("Received token:", token);
           setMessages((prev) => {
             // Update last assistant message in streaming
-            if (prev[prev.length - 1]?.role === "user") {
-              return [...prev.slice(0, -1), { role: "user", content: assistantMsg }];
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg?.role === "assistant") {
+              return [...prev.slice(0, -1), { role: "assistant", content: assistantMsg }];
             } else {
-              return [...prev, { role: "user", content: assistantMsg }];
+              return [...prev, { role: "assistant", content: assistantMsg }];
             }
           });
         } catch (err) {
@@ -81,6 +81,29 @@ export default function Home() {
     // Only for demo: use fetch and parse SSE manually
     const { payload, signal } = opts;
     const eventTarget = new EventTarget();
+
+    // Create a proxy object to hold the onmessage/onerror properties
+    const eventSourceProxy = {
+      onmessage: null as ((event: MessageEvent) => void) | null,
+      onerror: null as ((event: any) => void) | null,
+      close: () => { },
+      addEventListener: eventTarget.addEventListener.bind(eventTarget),
+      removeEventListener: eventTarget.removeEventListener.bind(eventTarget),
+      dispatchEvent: eventTarget.dispatchEvent.bind(eventTarget),
+    };
+
+    // Add internal listeners to trigger the properties
+    eventTarget.addEventListener("message", (e: any) => {
+      if (eventSourceProxy.onmessage) {
+        eventSourceProxy.onmessage(e);
+      }
+    });
+    eventTarget.addEventListener("error", (e: any) => {
+      if (eventSourceProxy.onerror) {
+        eventSourceProxy.onerror(e);
+      }
+    });
+
     fetch(url.replace("/sse", ""), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -109,14 +132,8 @@ export default function Home() {
       .catch((err) => {
         eventTarget.dispatchEvent(new Event("error"));
       });
-    return {
-      onmessage: null as ((event: MessageEvent) => void) | null,
-      onerror: null as ((event: any) => void) | null,
-      close: () => {},
-      addEventListener: eventTarget.addEventListener.bind(eventTarget),
-      removeEventListener: eventTarget.removeEventListener.bind(eventTarget),
-      dispatchEvent: eventTarget.dispatchEvent.bind(eventTarget),
-    };
+
+    return eventSourceProxy;
   }
 
   return (
