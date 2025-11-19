@@ -1,65 +1,153 @@
-import Image from "next/image";
+
+"use client";
+import { useRef, useState } from "react";
 import styles from "./page.module.css";
 
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export default function Home() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    setError(null);
+    setLoading(true);
+    const userMsg: Message = { role: "user", content: input };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const eventSource = new EventSourcePolyfill("http://localhost:8000/v1/chat/completions/sse?stream=true", {
+        headers: {},
+        payload: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [...messages, userMsg],
+          stream: true,
+        }),
+        method: "POST",
+        signal: controller.signal,
+      });
+
+      let assistantMsg = "";
+      eventSource.onmessage = (event: MessageEvent) => {
+        // if (event.data === "[DONE]") {
+        //   setMessages((prev) => [...prev, { role: "user", content: assistantMsg }]);
+        //   setLoading(false);
+        //   eventSource.close();
+        //   return;
+        //}
+        try {
+          const data = JSON.parse(event.data);
+          console.log("Received data:", data);
+          const token = data.choices?.[0]?.delta?.content || "";
+          assistantMsg += token;
+          console.log("Received token:", token);
+          setMessages((prev) => {
+            // Update last assistant message in streaming
+            if (prev[prev.length - 1]?.role === "user") {
+              return [...prev.slice(0, -1), { role: "user", content: assistantMsg }];
+            } else {
+              return [...prev, { role: "user", content: assistantMsg }];
+            }
+          });
+        } catch (err) {
+          // ignore parse errors
+        }
+      };
+      eventSource.onerror = (err: any) => {
+        setError("Streaming connection error");
+        setLoading(false);
+        eventSource.close();
+      };
+    } catch (err: any) {
+      setError("Failed to connect to backend");
+      setLoading(false);
+    }
+  };
+
+  // Polyfill for EventSource with POST support (for demo, use fetch+SSE in production)
+  function EventSourcePolyfill(url: string, opts: any) {
+    // Only for demo: use fetch and parse SSE manually
+    const { payload, signal } = opts;
+    const eventTarget = new EventTarget();
+    fetch(url.replace("/sse", ""), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: payload,
+      signal,
+    })
+      .then(async (res) => {
+        if (!res.body) throw new Error("No response body");
+        const reader = res.body.getReader();
+        let buffer = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += new TextDecoder().decode(value);
+          let idx;
+          while ((idx = buffer.indexOf("\n\n")) !== -1) {
+            const chunk = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 2);
+            if (chunk.startsWith("data: ")) {
+              const data = chunk.slice(6);
+              eventTarget.dispatchEvent(new MessageEvent("message", { data }));
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        eventTarget.dispatchEvent(new Event("error"));
+      });
+    return {
+      onmessage: null as ((event: MessageEvent) => void) | null,
+      onerror: null as ((event: any) => void) | null,
+      close: () => {},
+      addEventListener: eventTarget.addEventListener.bind(eventTarget),
+      removeEventListener: eventTarget.removeEventListener.bind(eventTarget),
+      dispatchEvent: eventTarget.dispatchEvent.bind(eventTarget),
+    };
+  }
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <h1>Chatbot Demo</h1>
+        <div style={{ flex: 1, width: "100%", overflowY: "auto", marginBottom: 16 }}>
+          {messages.map((msg, i) => (
+            <div key={i} style={{ margin: "8px 0", textAlign: msg.role === "user" ? "right" : "left" }}>
+              <b>{msg.role === "user" ? "You" : "Assistant"}:</b> {msg.content}
+            </div>
+          ))}
+          {loading && (
+            <div style={{ color: "#888" }}>Assistant is typing...</div>
+          )}
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+        <form onSubmit={handleSend} style={{ display: "flex", width: "100%", gap: 8 }}>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type your message..."
+            style={{ flex: 1, padding: 8, borderRadius: 4, border: "1px solid #ccc" }}
+            disabled={loading}
+            aria-label="Type your message"
+          />
+          <button type="submit" disabled={loading || !input.trim()} style={{ padding: "8px 16px" }}>
+            Send
+          </button>
+        </form>
+        {error && <div style={{ color: "red", marginTop: 8 }}>{error}</div>}
       </main>
     </div>
   );
