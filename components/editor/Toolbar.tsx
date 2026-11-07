@@ -14,6 +14,7 @@ import {
   BringToFront,
   ChartColumn,
   Copy,
+  Download,
   Group,
   Image as ImageIcon,
   Redo2,
@@ -98,6 +99,48 @@ function countLowConfidence(elements: Element[]): number {
     const c = el.provenance?.confidence;
     return n + (c !== undefined && c < LOW_CONFIDENCE ? 1 : 0) + (el.type === "group" ? countLowConfidence(el.children) : 0);
   }, 0);
+}
+
+/** Downloads the current deck as an editable .pptx (exporter is loaded on demand). */
+function ExportButton() {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const onExport = async () => {
+    const deck = useEditor.getState().deck;
+    if (!deck || busy) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const { exportDeckToPptx, pptxFileName } = await import("@/lib/export/pptx");
+      const { blob, warnings } = await exportDeckToPptx(deck);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = pptxFileName(deck.title);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      if (warnings.length) setMessage(`Exported. Note: ${warnings.join(" ")}`);
+    } catch (err) {
+      setMessage(`Export failed: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <button type="button" className={ui.btn} onClick={onExport} disabled={busy} title="Download as PowerPoint (.pptx)">
+        <Download size={16} />
+        {busy ? "Exporting…" : "Export"}
+      </button>
+      {message && (
+        <span className={ui.note} role={message.startsWith("Export failed") ? "alert" : "status"} title={message} style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: message.startsWith("Export failed") ? "#DC2626" : undefined }}>
+          {message}
+        </span>
+      )}
+    </>
+  );
 }
 
 export function Toolbar({ saveStatus }: { saveStatus: ReactNode }) {
@@ -272,6 +315,7 @@ export function Toolbar({ saveStatus }: { saveStatus: ReactNode }) {
         <ScanEye size={16} />
         Review{flagged ? ` (${flagged})` : ""}
       </button>
+      <ExportButton />
       <span className={ui.note} style={{ marginLeft: 8 }} aria-live="polite">
         {saveStatus}
       </span>
