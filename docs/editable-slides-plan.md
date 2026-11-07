@@ -158,6 +158,17 @@ Design rules:
 
 ## 5. Import pipeline (backend workers)
 
+> **Status (v1, in-browser):** until the workers below exist, `lib/import/` runs a first
+> version of both paths in the browser and saves results to an IndexedDB library:
+> the PPTX path (§5.2) is implemented natively from OOXML (theme/master/layout inheritance,
+> text, shapes incl. custom geometry, pictures, groups, tables, charts, SmartArt drawings,
+> notes); the PDF path implements the "digital" class of §5.3 with pdf.js — text items are
+> regrouped into lines/paragraphs/boxes, bullets detected, colors sampled from the render,
+> and text erased from the page image by ring-color fill (a cheap stand-in for LaMa). Images
+> and vector art stay in that background plate; scanned pages need the server's OCR. Both
+> emit the same progress events and Deck JSON the server importer will, behind
+> `importFile()`.
+
 ### 5.1 Job orchestration
 1. `POST /v1/imports` → returns a presigned upload URL and an `importId`.
 2. The client uploads directly to object storage, then calls `POST /v1/imports/{id}/start`.

@@ -13,7 +13,8 @@ npm run dev
 ```
 
 - http://localhost:3000 — chat demo (Jarvis streaming endpoint)
-- http://localhost:3000/decks — decks; open one to edit it (currently a built-in sample deck; edits autosave to your browser)
+- http://localhost:3000/decks — your decks plus a sample deck; open one to edit it
+- http://localhost:3000/decks/new — import a PowerPoint (.pptx) or PDF file
 
 ## Scripts
 
@@ -32,9 +33,30 @@ components/editor/       slide editor (stage, toolbar, inspector, slide rail) an
 lib/api/                 backend config, fetch + CSRF client, SSE streaming
 lib/deck/                deck schema (zod), editing commands, store + undo, geometry, text conversion, fixtures
 lib/editor/              Tiptap setup for in-place text editing
+lib/import/              in-browser importers: PPTX (OOXML → deck) and PDF (pdf.js text + cleaned page image)
+components/import/       upload flow, import report, deck list
 lib/charts/              ChartSpec -> ECharts conversion
 docs/                    design docs
 ```
+
+## Importing files
+
+Imports run in the browser for now and are saved in the browser (IndexedDB), together with
+autosaved edits. A server importer can replace the in-browser one later behind the same
+`importFile()` interface (`lib/import/index.ts`).
+
+- **PowerPoint (.pptx)** is rebuilt from the file's XML: text with fonts, sizes, colors,
+  bullets and levels (including slide master/layout inheritance), shapes, pictures, groups,
+  tables (with merged cells) and charts (with their data), speaker notes and backgrounds.
+  SmartArt comes in as a group of shapes; unsupported shapes are drawn as rectangles and
+  listed in the import report.
+- **PDF** text becomes editable text boxes (lines are regrouped into paragraphs, bullets and
+  numbering are detected, colors are sampled from the page). The text is erased from a
+  rendered image of the page, which becomes the slide background, so pictures and drawings
+  stay in that image. Scanned PDFs (no text layer) import as images only; they need OCR.
+
+Test fixtures and their generator live in `lib/import/__fixtures__/`
+(`python3 generate.py && soffice --headless --convert-to pdf sample.pptx`).
 
 ## Editor shortcuts
 
