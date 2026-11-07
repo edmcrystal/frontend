@@ -10,6 +10,7 @@ import type {
   TableElement,
   TextElement,
 } from "./schema";
+import { DEFAULT_TEXT_PADDING } from "./schema";
 import { newId } from "./commands";
 
 type Size = { w: number; h: number };
@@ -40,7 +41,7 @@ export function createTextBox(deck: Deck, cascade = 0): TextElement {
     type: "text",
     frame: centered(deck, { w: 400, h: 60 }, cascade),
     autofit: "none",
-    padding: [7.2, 3.6, 7.2, 3.6],
+    padding: [...DEFAULT_TEXT_PADDING],
     verticalAlign: "top",
     paragraphs: [paragraph(deck, "Text", 24)],
     provenance: { source: "user" },

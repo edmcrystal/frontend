@@ -28,9 +28,18 @@ import type {
   TextElement,
   Theme,
 } from "@/lib/deck/schema";
+import { DEFAULT_TEXT_PADDING } from "@/lib/deck/schema";
 import { center, rotate } from "@/lib/deck/geometry";
 import { bulletIndent, gradientVector, LEVEL_INDENT, presetPath, strokeDashArray } from "@/lib/deck/render-utils";
 import { themePalette } from "@/lib/charts/toEcharts";
+
+// Text inside shapes uses the default insets; pptxgenjs order is left, right, bottom, top.
+const shapeTextMargin: [number, number, number, number] = [
+  DEFAULT_TEXT_PADDING[3],
+  DEFAULT_TEXT_PADDING[1],
+  DEFAULT_TEXT_PADDING[2],
+  DEFAULT_TEXT_PADDING[0],
+];
 
 type Pptx = InstanceType<typeof PptxGenJS>;
 type PptxSlide = ReturnType<Pptx["addSlide"]>;
@@ -478,7 +487,7 @@ async function addShape(s: PptxSlide, el: ShapeElement, frame: Frame, opacity: n
     s.addImage({ data: asImageData(png), ...position(frame), ...(opacity < 1 ? { transparency: Math.round((1 - opacity) * 100) } : {}), objectName: name });
     ctx.warn("Custom-path shapes were exported as images.");
     if (el.paragraphs?.some((p) => p.runs.some((r) => r.text))) {
-      s.addText(paragraphsToRuns(el.paragraphs, opacity), { ...position(frame), valign: VALIGN[el.verticalAlign], margin: [3.6, 3.6, 7.2, 7.2], objectName: `${name} text` });
+      s.addText(paragraphsToRuns(el.paragraphs, opacity), { ...position(frame), valign: VALIGN[el.verticalAlign], margin: shapeTextMargin, objectName: `${name} text` });
     }
     return;
   }
@@ -499,7 +508,7 @@ async function addShape(s: PptxSlide, el: ShapeElement, frame: Frame, opacity: n
       ...common,
       shape,
       valign: VALIGN[el.verticalAlign],
-      margin: [3.6, 3.6, 7.2, 7.2],
+      margin: shapeTextMargin,
       fit: "none",
       wrap: true,
     } as PptxGenJS.TextPropsOptions);

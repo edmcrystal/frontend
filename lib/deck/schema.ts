@@ -10,6 +10,8 @@ import { z } from "zod";
 export const PT_PER_INCH = 72;
 export const EMU_PER_PT = 12700;
 export const DEFAULT_SLIDE_SIZE = { width: 960, height: 540 } as const;
+/** Text box insets, top/right/bottom/left in pt: PowerPoint's defaults (0.05in vertical, 0.1in horizontal). */
+export const DEFAULT_TEXT_PADDING: [number, number, number, number] = [3.6, 7.2, 3.6, 7.2];
 
 const hexColor = z
   .string()
@@ -160,7 +162,7 @@ export const TextElementSchema = z.object({
   type: z.literal("text"),
   role: z.enum(["title", "subtitle", "body", "bullet", "caption", "footer"]).optional(),
   autofit: z.enum(["none", "shrink", "resize"]).default("none"),
-  padding: z.tuple([z.number(), z.number(), z.number(), z.number()]).default([7.2, 3.6, 7.2, 3.6]), // t r b l (PPTX defaults)
+  padding: z.tuple([z.number(), z.number(), z.number(), z.number()]).default(DEFAULT_TEXT_PADDING), // t r b l
   verticalAlign: z.enum(["top", "middle", "bottom"]).default("top"),
   fill: FillSchema.optional(),
   paragraphs: z.array(ParagraphSchema),

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { Paragraph, Run } from "@/lib/deck/schema";
+import { DEFAULT_TEXT_PADDING, type Paragraph, type Run } from "@/lib/deck/schema";
 import { DEFAULT_LINE_HEIGHT, LEVEL_INDENT, bulletIndent, bulletLabels } from "@/lib/deck/render-utils";
 
 
@@ -26,7 +26,7 @@ export function runStyle(run: Run): CSSProperties {
 }
 
 /** Renders a paragraph/run tree. Shared by text boxes, shapes and table cells. */
-export function TextBody({ paragraphs, padding = [7.2, 3.6, 7.2, 3.6], verticalAlign = "top" }: Props) {
+export function TextBody({ paragraphs, padding = DEFAULT_TEXT_PADDING, verticalAlign = "top" }: Props) {
   const labels = bulletLabels(paragraphs);
   const [t, r, b, l] = padding;
   return (

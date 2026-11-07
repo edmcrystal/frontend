@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { EditorContent, useEditor as useTiptap } from "@tiptap/react";
-import type { ShapeElement, TextElement, Theme } from "@/lib/deck/schema";
+import { DEFAULT_TEXT_PADDING, type ShapeElement, type TextElement, type Theme } from "@/lib/deck/schema";
 import { setParagraphs } from "@/lib/deck/commands";
 import { useEditor } from "@/lib/deck/store";
 import { defaultRunStyle, docToParagraphs, paragraphsToDoc, type PMNode } from "@/lib/deck/text";
@@ -67,7 +67,7 @@ export function TextEditor({ el, slideId, theme, caret }: Props) {
     return () => setTextEditor(null);
   }, [editor, setTextEditor]);
 
-  const padding = el.type === "text" ? el.padding : [7.2, 3.6, 7.2, 3.6];
+  const padding = el.type === "text" ? el.padding : DEFAULT_TEXT_PADDING;
   return (
     <div
       className={styles.box}

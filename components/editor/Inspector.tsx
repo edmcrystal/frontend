@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { current, type Draft } from "immer";
+import type { Draft } from "immer";
 import type { ChartSpec, Deck, Element, Fill, Paragraph, PresetShape, Slide, TableElement } from "@/lib/deck/schema";
 import { PRESET_SHAPES } from "@/lib/deck/schema";
 import { useEditor } from "@/lib/deck/store";
 import { locate, setSlideBackground, updateElement } from "@/lib/deck/commands";
 import { imageFileToAsset } from "@/lib/deck/factories";
+import { addColumn, addRow as addTableRow, layoutCells, removeLastColumn, removeLastRow } from "@/lib/deck/table";
 import { round2 } from "@/lib/deck/geometry";
 import { LOW_CONFIDENCE } from "./renderers/ElementView";
 import ui from "./ui.module.css";
@@ -257,49 +258,24 @@ function TablePanel({ el, mutate }: { el: TableElement; mutate: Mutate }) {
       }));
     }, `cell-${r}-${c}`);
 
-  /** An empty copy of a cell: same fill and text style, no text. */
-  const emptyCell = (c: TableElement["rows"][number]["cells"][number]) => ({
-    fill: c.fill,
-    paragraphs: c.paragraphs.slice(0, 1).map((p) => ({ ...p, runs: p.runs.slice(0, 1).map((r) => ({ ...r, text: "" })) })),
-  });
-
-  const addRow = () =>
-    mutate((d) => {
-      const t = d as Draft<TableElement>;
-      const last = current(t.rows[t.rows.length - 1]);
-      t.rows.push(structuredClone({ height: last.height, cells: last.cells.map(emptyCell) }));
-      t.frame.h += last.height;
-    });
-  const removeRow = () =>
-    mutate((d) => {
-      const t = d as Draft<TableElement>;
-      if (t.rows.length <= 1) return;
-      t.frame.h -= t.rows.pop()!.height;
-    });
-  const addCol = () =>
-    mutate((d) => {
-      const t = d as Draft<TableElement>;
-      const w = t.columns[t.columns.length - 1];
-      t.columns.push(w);
-      t.frame.w += w;
-      for (const row of t.rows) row.cells.push(structuredClone(emptyCell(current(row.cells[row.cells.length - 1]))));
-    });
-  const removeCol = () =>
-    mutate((d) => {
-      const t = d as Draft<TableElement>;
-      if (t.columns.length <= 1) return;
-      t.frame.w -= t.columns.pop()!;
-      for (const row of t.rows) row.cells.pop();
-    });
+  const addRow = () => mutate((d) => void ((d as Draft<TableElement>).frame.h += addTableRow(d as Draft<TableElement>)));
+  const removeRow = () => mutate((d) => void ((d as Draft<TableElement>).frame.h -= removeLastRow(d as Draft<TableElement>)));
+  const addCol = () => mutate((d) => void ((d as Draft<TableElement>).frame.w += addColumn(d as Draft<TableElement>)));
+  const removeCol = () => mutate((d) => void ((d as Draft<TableElement>).frame.w -= removeLastColumn(d as Draft<TableElement>)));
 
   return (
     <Section title="Table cells">
       <div className={ui.dataGrid} style={{ gridTemplateColumns: `repeat(${el.columns.length}, minmax(56px, 1fr))` }}>
-        {el.rows.map((row, r) =>
-          row.cells.map((cell, c) => (
-            <input key={`${r}-${c}`} className={ui.input} aria-label={`Row ${r + 1} column ${c + 1}`} value={cellText(cell.paragraphs)} onChange={(e) => setCell(r, c, e.target.value)} />
-          )),
-        )}
+        {layoutCells(el).map((p) => (
+          <input
+            key={`${p.row}-${p.index}`}
+            className={ui.input}
+            aria-label={`Row ${p.row + 1} column ${p.col + 1}`}
+            style={{ gridColumn: `${p.col + 1} / span ${p.colSpan}`, gridRow: `${p.row + 1} / span ${p.rowSpan}`, height: "auto", minHeight: 26 }}
+            value={cellText(el.rows[p.row].cells[p.index].paragraphs)}
+            onChange={(e) => setCell(p.row, p.index, e.target.value)}
+          />
+        ))}
       </div>
       <div className={ui.row} style={{ flexWrap: "wrap", gap: 4 }}>
         <button type="button" className={ui.btn} onClick={addRow}>+ Row</button>
