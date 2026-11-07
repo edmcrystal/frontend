@@ -2,6 +2,9 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
 import styles from "./page.module.css";
+import { fetchCsrfToken } from "@/lib/api/client";
+import { CHAT_COMPLETIONS_URL } from "@/lib/api/config";
+import { streamSSE } from "@/lib/api/sse";
 
 type Message = {
   role: "user" | "assistant";
@@ -17,13 +20,18 @@ export default function Home() {
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/csrf-token")
-      .then((res) => {
-        const token = res.headers.get("X-CSRF-Token");
+    const controller = new AbortController();
+    fetchCsrfToken(controller.signal)
+      .then((token) => {
         if (token) setCsrfToken(token);
       })
-      .catch((err) => console.error("Failed to fetch CSRF token", err));
+      .catch((err) => {
+        if (err?.name !== "AbortError") console.error("Failed to fetch CSRF token", err);
+      });
+    return () => controller.abort();
   }, []);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,62 +39,49 @@ export default function Home() {
     setError(null);
     setLoading(true);
     const userMsg: Message = { role: "user", content: input };
-    setMessages((prev) => [...prev, userMsg]);
+    const history = [...messages, userMsg];
+    setMessages(history);
     setInput("");
 
+    abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
+    let assistantMsg = "";
     try {
-      const eventSource = EventSourcePolyfill("https://dev.jarvis.edmcrystal.com/test2/v1/chat/completions/sse?stream=true", {
-        headers: {},
-        payload: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [...messages, userMsg],
-          stream: true,
-        }),
-        method: "POST",
-        signal: controller.signal,
+      await streamSSE(CHAT_COMPLETIONS_URL, {
+        body: { model: "gpt-3.5-turbo", messages: history, stream: true },
         csrfToken,
-      });
-
-      let assistantMsg = "";
-      eventSource.onmessage = (event: MessageEvent) => {
-        if (event.data === "[DONE]") {
-          setLoading(false);
-          eventSource.close();
-          return;
-        }
-        try {
-          const data = JSON.parse(event.data);
-          console.log("Received data:", data);
-          const token = data.choices?.[0]?.delta?.content || "";
+        signal: controller.signal,
+        onEvent: ({ data }) => {
+          if (data === "[DONE]") {
+            controller.abort();
+            return;
+          }
+          let token = "";
+          try {
+            token = JSON.parse(data).choices?.[0]?.delta?.content ?? "";
+          } catch {
+            return; // ignore malformed chunks
+          }
+          if (!token) return;
           assistantMsg += token;
-          console.log("Received token:", token);
+          const content = assistantMsg;
           setMessages((prev) => {
-            // Update last assistant message in streaming
-            const lastMsg = prev[prev.length - 1];
-            if (lastMsg?.role === "assistant") {
-              return [...prev.slice(0, -1), { role: "assistant", content: assistantMsg }];
-            } else {
-              return [...prev, { role: "assistant", content: assistantMsg }];
-            }
+            const last = prev[prev.length - 1];
+            return last?.role === "assistant"
+              ? [...prev.slice(0, -1), { role: "assistant", content }]
+              : [...prev, { role: "assistant", content }];
           });
-        } catch (err) {
-          // ignore parse errors
-        }
-      };
-      eventSource.onerror = (err: any) => {
-        setError("Streaming connection error");
-        setLoading(false);
-        eventSource.close();
-      };
+        },
+      });
     } catch (err: any) {
-      setError("Failed to connect to backend");
+      if (err?.name !== "AbortError") setError("Streaming connection error");
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setLoading(false);
     }
   };
-
 
   return (
     <div className={styles.page}>
@@ -120,69 +115,4 @@ export default function Home() {
       </main>
     </div>
   );
-}
-
-// Polyfill for EventSource with POST support (for demo, use fetch+SSE in production)
-function EventSourcePolyfill(url: string, opts: any) {
-  // Only for demo: use fetch and parse SSE manually
-  const { payload, signal, csrfToken } = opts;
-  const eventTarget = new EventTarget();
-
-  // Create a proxy object to hold the onmessage/onerror properties
-  const eventSourceProxy = {
-    onmessage: null as ((event: MessageEvent) => void) | null,
-    onerror: null as ((event: any) => void) | null,
-    close: () => { },
-    addEventListener: eventTarget.addEventListener.bind(eventTarget),
-    removeEventListener: eventTarget.removeEventListener.bind(eventTarget),
-    dispatchEvent: eventTarget.dispatchEvent.bind(eventTarget),
-  };
-
-  // Add internal listeners to trigger the properties
-  eventTarget.addEventListener("message", (e: any) => {
-    if (eventSourceProxy.onmessage) {
-      eventSourceProxy.onmessage(e);
-    }
-  });
-  eventTarget.addEventListener("error", (e: any) => {
-    if (eventSourceProxy.onerror) {
-      eventSourceProxy.onerror(e);
-    }
-  });
-
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (csrfToken) {
-    headers["X-CSRF-TOKEN"] = csrfToken;
-  }
-
-  fetch(url.replace("/sse", ""), {
-    method: "POST",
-    headers: headers,
-    body: payload,
-    signal,
-  })
-    .then(async (res) => {
-      if (!res.body) throw new Error("No response body");
-      const reader = res.body.getReader();
-      let buffer = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += new TextDecoder().decode(value);
-        let idx;
-        while ((idx = buffer.indexOf("\n\n")) !== -1) {
-          const chunk = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 2);
-          if (chunk.startsWith("data: ")) {
-            const data = chunk.slice(6);
-            eventTarget.dispatchEvent(new MessageEvent("message", { data }));
-          }
-        }
-      }
-    })
-    .catch((err) => {
-      eventTarget.dispatchEvent(new Event("error"));
-    });
-
-  return eventSourceProxy;
 }
