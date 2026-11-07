@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Deck, Element } from "@/lib/deck/schema";
 import { TextRenderer } from "./TextRenderer";
 import { ImageRenderer } from "./ImageRenderer";
@@ -8,7 +9,13 @@ import { IconRenderer } from "./IconRenderer";
 
 export const LOW_CONFIDENCE = 0.7;
 
-type Props = { el: Element; deck: Deck; review?: boolean };
+/** Editor hooks: render a live text editor in place of the element's text. */
+export type EditHooks = {
+  editingId?: string | null;
+  renderTextEditor?: (el: Element) => ReactNode;
+};
+
+type Props = { el: Element; deck: Deck; review?: boolean; depth?: number } & EditHooks;
 
 /**
  * Positions one element and dispatches to its renderer.
@@ -16,7 +23,7 @@ type Props = { el: Element; deck: Deck; review?: boolean };
  * group-local space (relative to the group's top-left) inside groups.
  * Rotation is around the element's center, as in PPTX.
  */
-export function ElementView({ el, deck, review }: Props) {
+export function ElementView({ el, deck, review, depth = 0, editingId, renderTextEditor }: Props) {
   if (el.hidden) return null;
   const { x, y, w, h, rotation } = el.frame;
   const confidence = el.provenance?.confidence;
@@ -26,6 +33,7 @@ export function ElementView({ el, deck, review }: Props) {
     <div
       data-element-id={el.id}
       data-element-type={el.type}
+      data-depth={depth}
       style={{
         position: "absolute",
         left: x,
@@ -38,7 +46,7 @@ export function ElementView({ el, deck, review }: Props) {
         outlineOffset: flagged ? 2 : undefined,
       }}
     >
-      {renderBody(el, deck, review)}
+      {renderBody(el, deck, { review, depth, editingId, renderTextEditor })}
       {flagged && (
         <span
           title={`Detected by ${el.provenance?.source} with ${Math.round(confidence! * 100)}% confidence — please check`}
@@ -63,14 +71,27 @@ export function ElementView({ el, deck, review }: Props) {
   );
 }
 
-function renderBody(el: Element, deck: Deck, review?: boolean) {
+function renderBody(el: Element, deck: Deck, opts: { review?: boolean; depth: number } & EditHooks) {
+  const editor = opts.editingId === el.id ? opts.renderTextEditor?.(el) : undefined;
   switch (el.type) {
     case "text":
-      return <TextRenderer el={el} assets={deck.assets} />;
+      return editor ? (
+        <>
+          <TextRenderer el={{ ...el, paragraphs: [] }} assets={deck.assets} />
+          {editor}
+        </>
+      ) : (
+        <TextRenderer el={el} assets={deck.assets} />
+      );
     case "image":
       return <ImageRenderer el={el} assets={deck.assets} />;
     case "shape":
-      return <ShapeRenderer el={el} assets={deck.assets} />;
+      return (
+        <>
+          <ShapeRenderer el={el} assets={deck.assets} hideText={!!editor} />
+          {editor}
+        </>
+      );
     case "table":
       return <TableRenderer el={el} assets={deck.assets} />;
     case "chart":
@@ -78,6 +99,16 @@ function renderBody(el: Element, deck: Deck, review?: boolean) {
     case "icon":
       return <IconRenderer el={el} />;
     case "group":
-      return el.children.map((child) => <ElementView key={child.id} el={child} deck={deck} review={review} />);
+      return el.children.map((child) => (
+        <ElementView
+          key={child.id}
+          el={child}
+          deck={deck}
+          review={opts.review}
+          depth={opts.depth + 1}
+          editingId={opts.editingId}
+          renderTextEditor={opts.renderTextEditor}
+        />
+      ));
   }
 }

@@ -1,9 +1,7 @@
 import type { CSSProperties } from "react";
 import type { Paragraph, Run } from "@/lib/deck/schema";
-import { bulletLabels } from "@/lib/deck/render-utils";
+import { DEFAULT_LINE_HEIGHT, LEVEL_INDENT, bulletIndent, bulletLabels } from "@/lib/deck/render-utils";
 
-const LEVEL_INDENT = 27; // pt per outline level (PowerPoint default ~0.375in)
-const DEFAULT_LINE_HEIGHT = 1.2;
 
 type Props = {
   paragraphs: Paragraph[];
@@ -13,7 +11,7 @@ type Props = {
 
 const justify = { top: "flex-start", middle: "center", bottom: "flex-end" } as const;
 
-function runStyle(run: Run): CSSProperties {
+export function runStyle(run: Run): CSSProperties {
   const decorations = [run.underline && "underline", run.strike && "line-through"].filter(Boolean);
   return {
     fontFamily: run.font,
@@ -51,14 +49,15 @@ export function TextBody({ paragraphs, padding = [7.2, 3.6, 7.2, 3.6], verticalA
         const label = labels[i];
         const bulletColor = p.bullet?.type === "char" && p.bullet.color ? p.bullet.color : first?.color;
         const lineHeight = p.lineHeight ?? DEFAULT_LINE_HEIGHT;
+        const bulletWidth = label ? bulletIndent(size) : 0;
         return (
           <div
             key={i}
             style={{
-              display: "flex",
               textAlign: p.align,
-              justifyContent: label ? undefined : p.align === "center" ? "center" : p.align === "right" ? "flex-end" : undefined,
-              paddingLeft: p.level * LEVEL_INDENT,
+              // Hanging indent: the bullet sits in the indent, wrapped lines align with the text.
+              paddingLeft: p.level * LEVEL_INDENT + bulletWidth,
+              textIndent: -bulletWidth,
               marginTop: p.spaceBefore,
               marginBottom: p.spaceAfter,
               lineHeight,
@@ -69,24 +68,22 @@ export function TextBody({ paragraphs, padding = [7.2, 3.6, 7.2, 3.6], verticalA
             {label && (
               <span
                 aria-hidden
-                style={{ ...(first ? runStyle(first) : {}), flex: "0 0 auto", minWidth: size * 1.1, color: bulletColor, fontWeight: 400, fontStyle: "normal", textDecoration: "none" }}
+                style={{ display: "inline-block", width: bulletWidth, textIndent: 0, fontFamily: first?.font, fontSize: size, color: bulletColor }}
               >
                 {label}
               </span>
             )}
-            <span style={{ flex: "1 1 auto", textAlign: p.align }}>
-              {p.runs.map((run, j) =>
-                run.link ? (
-                  <a key={j} href={run.link} target="_blank" rel="noreferrer noopener" style={runStyle(run)}>
-                    {run.text}
-                  </a>
-                ) : (
-                  <span key={j} style={runStyle(run)}>
-                    {run.text}
-                  </span>
-                ),
-              )}
-            </span>
+            {p.runs.map((run, j) =>
+              run.link ? (
+                <a key={j} href={run.link} target="_blank" rel="noreferrer noopener" style={runStyle(run)}>
+                  {run.text}
+                </a>
+              ) : (
+                <span key={j} style={runStyle(run)}>
+                  {run.text}
+                </span>
+              ),
+            )}
           </div>
         );
       })}

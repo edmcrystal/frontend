@@ -1,0 +1,116 @@
+.container {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  touch-action: none;
+  user-select: none;
+}
+
+.canvas {
+  box-shadow: 0 4px 24px rgb(0 0 0 / 0.12), 0 0 0 1px var(--ui-border);
+}
+
+/* Overlay lives in slide coordinates; --inv converts screen px to slide units. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  --sel: #2563eb;
+}
+
+.selectionBox,
+.selectionOutline,
+.multiBox,
+.marquee {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.selectionBox {
+  outline: calc(1.5px * var(--inv)) solid var(--sel);
+}
+
+.selectionOutline {
+  outline: calc(1px * var(--inv)) solid var(--sel);
+}
+
+.selectionBox[data-locked],
+.selectionOutline[data-locked] {
+  outline-style: dashed;
+  outline-color: #9ca3af;
+}
+
+.multiBox {
+  outline: calc(1px * var(--inv)) dashed var(--sel);
+}
+
+.marquee {
+  background: rgb(37 99 235 / 0.08);
+  outline: calc(1px * var(--inv)) solid rgb(37 99 235 / 0.6);
+}
+
+.handle {
+  position: absolute;
+  width: calc(10px * var(--inv));
+  height: calc(10px * var(--inv));
+  margin: calc(-5px * var(--inv)) 0 0 calc(-5px * var(--inv));
+  background: #fff;
+  border: calc(1.5px * var(--inv)) solid var(--sel);
+  border-radius: calc(2px * var(--inv));
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+
+.h_nw { left: 0; top: 0; cursor: nwse-resize; }
+.h_n { left: 50%; top: 0; cursor: ns-resize; }
+.h_ne { left: 100%; top: 0; cursor: nesw-resize; }
+.h_e { left: 100%; top: 50%; cursor: ew-resize; }
+.h_se { left: 100%; top: 100%; cursor: nwse-resize; }
+.h_s { left: 50%; top: 100%; cursor: ns-resize; }
+.h_sw { left: 0; top: 100%; cursor: nesw-resize; }
+.h_w { left: 0; top: 50%; cursor: ew-resize; }
+
+.rotate {
+  position: absolute;
+  left: 50%;
+  top: calc(-28px * var(--inv));
+  width: calc(12px * var(--inv));
+  height: calc(12px * var(--inv));
+  margin-left: calc(-6px * var(--inv));
+  border-radius: 50%;
+  background: #fff;
+  border: calc(1.5px * var(--inv)) solid var(--sel);
+  pointer-events: auto;
+  cursor: grab;
+  box-sizing: border-box;
+}
+
+.rotate::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: calc(1.5px * var(--inv));
+  height: calc(16px * var(--inv));
+  margin-left: calc(-0.75px * var(--inv));
+  background: var(--sel);
+}
+
+.guide {
+  position: absolute;
+  background: #ec4899;
+}
+
+.guide[data-axis="x"] {
+  width: calc(1px * var(--inv));
+}
+
+.guide[data-axis="y"] {
+  height: calc(1px * var(--inv));
+}

@@ -300,9 +300,9 @@ more editable / more faithful").
 ### 6.2 Libraries
 | Concern | Choice | Notes |
 |---|---|---|
-| State | `zustand` + `immer` (`produceWithPatches`) | Patches drive undo/redo, autosave diffs and future CRDT sync |
-| Undo/redo | Custom patch stack (inverse patches), coalescing for drags/typing | Cap at ~200 steps |
-| Transform handles | `react-moveable` (+ `react-selecto` for marquee) | Snapping and alignment guides, rotation, multi-select, groups |
+| State | `zustand` + `immer` | Immutable deck; `produceWithPatches` can supply diffs for the server API and future CRDT sync |
+| Undo/redo | Snapshot stack of immutable decks (structural sharing keeps it cheap), coalescing for drags/typing | Cap at 200 steps. *Built this way instead of a patch stack: simpler, same memory cost.* |
+| Transform handles | Custom pointer handling (`lib/deck/geometry.ts`) | Move/resize/rotate, snapping guides, marquee. *Built in-house instead of `react-moveable`: rotation-aware resize inside a CSS-scaled stage is easier to get right and unit-test ourselves.* |
 | Rich text | `tiptap` (ProseMirror), mounted only on the text box being edited | Custom marks for font/size/color; converts to/from `Paragraph[]` |
 | Charts | `echarts` (SVG renderer) | ChartSpec → ECharts option; also used in the chart data editor |
 | Slide reorder | `@dnd-kit/sortable` | |
@@ -619,10 +619,10 @@ schema.
 ---
 
 ## 14. Immediate next steps (first PRs in this repo)
-1. `lib/api/client.ts`, `lib/api/sse.ts`: move CSRF + SSE out of `app/page.tsx`, fix the
-   decoder/separator handling, add `NEXT_PUBLIC_API_BASE_URL`.
-2. `lib/deck/schema.ts`: the zod schema from §4 with fixtures (2–3 hand-written decks).
+1. ~~`lib/api/client.ts`, `lib/api/sse.ts`: move CSRF + SSE out of `app/page.tsx`, fix the
+   decoder/separator handling, add `NEXT_PUBLIC_API_BASE_URL`.~~ Done.
+2. ~~`lib/deck/schema.ts`: the zod schema from §4 with fixtures.~~ Done.
 3. `components/editor/renderers/*`: read-only rendering of the fixture decks at
-   `/decks/[id]`. This is the base for both the editor and the PDF export.
-4. `lib/deck/store.ts` + Stage with `react-moveable`: selection, move/resize, undo/redo.
+   `/decks/[id]`. This is the base for both the editor and the PDF export. *(Done.)*
+4. ~~`lib/deck/store.ts` + Stage: selection, move/resize, undo/redo.~~ Done (custom handles, Tiptap text editing, inspector, slide rail, local autosave).
 5. Backend ticket: `/v1/imports` + job SSE + the PPTX parser spike against the fixtures.

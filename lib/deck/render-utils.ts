@@ -1,5 +1,11 @@
 import type { Bullet, Deck, Fill, Paragraph, PresetShape } from "./schema";
 
+/** Text layout constants shared by the renderer and the in-place editor. */
+export const LEVEL_INDENT = 27; // pt per outline level (PowerPoint default ~0.375in)
+export const DEFAULT_LINE_HEIGHT = 1.2;
+/** Width reserved for a bullet label, relative to the paragraph's font size. */
+export const bulletIndent = (size: number) => size * 1.1;
+
 /** Converts a Fill into a CSS `background` value. */
 export function fillToCss(fill: Fill | undefined, assets: Deck["assets"]): string {
   if (!fill) return "transparent";

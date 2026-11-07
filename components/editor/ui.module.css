@@ -1,0 +1,200 @@
+/* Shared editor chrome styles. Tokens are defined on .shell in EditorShell.module.css. */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 6px;
+  background: var(--ui-border);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--ui-hover);
+}
+
+.btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.btn[aria-pressed="true"] {
+  background: var(--ui-active);
+  color: var(--ui-accent);
+}
+
+.btn:focus-visible,
+.input:focus-visible,
+.select:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 1px;
+}
+
+.primary {
+  background: var(--ui-accent);
+  color: #fff;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--ui-accent);
+  filter: brightness(1.1);
+}
+
+.input,
+.select {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-input);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.input[type="number"] {
+  width: 64px;
+}
+
+.color {
+  width: 30px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--ui-border);
+  border-radius: 6px;
+  background: var(--ui-input);
+  cursor: pointer;
+}
+
+.menu {
+  position: relative;
+}
+
+.menuPanel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  padding: 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  background: var(--ui-panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+}
+
+.menuPanel .btn {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+/* Inspector */
+
+.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  font-size: 13px;
+}
+
+.section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ui-muted);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row > label {
+  flex: 0 0 72px;
+  color: var(--ui-muted);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px 8px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.field > span {
+  width: 14px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+
+.field {
+  min-width: 0;
+}
+
+.field > .input,
+.field > .input[type="number"] {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+}
+
+.note {
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dataGrid {
+  display: grid;
+  gap: 2px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.dataGrid .input {
+  height: 26px;
+  width: 100%;
+  min-width: 56px;
+  border-radius: 4px;
+}

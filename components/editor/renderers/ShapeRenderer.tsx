@@ -3,7 +3,7 @@ import type { Deck, ShapeElement } from "@/lib/deck/schema";
 import { gradientVector, presetPath, strokeDashArray } from "@/lib/deck/render-utils";
 import { TextBody } from "./TextBody";
 
-export function ShapeRenderer({ el, assets }: { el: ShapeElement; assets: Deck["assets"] }) {
+export function ShapeRenderer({ el, assets, hideText }: { el: ShapeElement; assets: Deck["assets"]; hideText?: boolean }) {
   const { w, h } = el.frame;
   const isLine = "preset" in el.geometry && el.geometry.preset === "line";
   const d = "preset" in el.geometry ? presetPath(el.geometry.preset, w, h) : el.geometry.path;
@@ -67,7 +67,7 @@ export function ShapeRenderer({ el, assets }: { el: ShapeElement; assets: Deck["
           strokeLinejoin="round"
         />
       </svg>
-      {el.paragraphs && el.paragraphs.length > 0 && (
+      {!hideText && el.paragraphs && el.paragraphs.length > 0 && (
         <TextBody paragraphs={el.paragraphs} verticalAlign={el.verticalAlign} />
       )}
     </>

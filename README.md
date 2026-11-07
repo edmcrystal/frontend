@@ -13,7 +13,7 @@ npm run dev
 ```
 
 - http://localhost:3000 — chat demo (Jarvis streaming endpoint)
-- http://localhost:3000/decks — decks (currently a built-in sample deck)
+- http://localhost:3000/decks — decks; open one to edit it (currently a built-in sample deck; edits autosave to your browser)
 
 ## Scripts
 
@@ -28,12 +28,28 @@ npm run dev
 
 ```
 app/                     routes (chat demo, /decks, /decks/[deckId])
-components/editor/       deck viewer and slide renderers
+components/editor/       slide editor (stage, toolbar, inspector, slide rail) and renderers
 lib/api/                 backend config, fetch + CSRF client, SSE streaming
-lib/deck/                deck schema (zod), render helpers, fixtures
+lib/deck/                deck schema (zod), editing commands, store + undo, geometry, text conversion, fixtures
+lib/editor/              Tiptap setup for in-place text editing
 lib/charts/              ChartSpec -> ECharts conversion
 docs/                    design docs
 ```
+
+## Editor shortcuts
+
+| Keys | Action |
+|---|---|
+| Click / Shift-click / drag on empty space | Select / add to selection / marquee |
+| Double-click, Enter | Edit text (Esc to stop) |
+| Tab / Shift+Tab (in text) | Indent / outdent |
+| Arrows (Shift ×10) | Nudge |
+| Ctrl+Z / Ctrl+Shift+Z | Undo / redo |
+| Ctrl+C / X / V, Ctrl+D | Copy / cut / paste, duplicate |
+| Ctrl+G / Ctrl+Shift+G | Group / ungroup |
+| Ctrl+] / Ctrl+[ (Shift: to front/back) | Bring forward / send backward |
+| Shift while resizing or rotating | Keep proportions / 15° steps |
+| Alt while dragging or resizing | No snapping / resize from center |
 
 ## Configuration
 
