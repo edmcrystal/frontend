@@ -224,6 +224,8 @@ Each page is classified first:
 - Background: a full-bleed image or rect at the bottom of the z-order becomes the
   `slide.background`.
 
+> Detailed plan for this path (flattened/scanned slides, AI-generated slide images): [scanned-pdf-pipeline-plan.md](scanned-pdf-pipeline-plan.md).
+
 **Vision pipeline (scanned pages and image regions with text):**
 1. Rasterize at 200–300 DPI.
 2. **Layout detection** with a document-layout model (DocLayout-YOLO or PaddleOCR

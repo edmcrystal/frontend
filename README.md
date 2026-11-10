@@ -2,7 +2,8 @@
 
 Turns PDF and PPTX files into fully editable slide decks, with AI help to add
 images, charts and infographics to each slide. See
-[docs/editable-slides-plan.md](docs/editable-slides-plan.md) for the full plan.
+[docs/editable-slides-plan.md](docs/editable-slides-plan.md) for the full plan, and
+[docs/scanned-pdf-pipeline-plan.md](docs/scanned-pdf-pipeline-plan.md) for the server pipeline that converts flattened or scanned PDFs.
 
 ## Getting started
 
