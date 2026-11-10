@@ -298,7 +298,7 @@ All mutating calls carry the existing CSRF header. Rate-limit per user. Idempote
    per-page text-layer check (`getTextContent` without rendering) so flat pages can be identified before upload, and
    page-order assembly of client and server slides into one deck with a shared slide size.
 3. Streaming import: open the editor on the first `slide_ready`; mark pending slides with a spinner thumbnail.
-4. **Compare with original** (slider/overlay using `sourceImage`), **Re-convert slide** menu (mode + "only this
+4. **Compare with original** (slider/overlay using `sourceImageId`), **Re-convert slide** menu (mode + "only this
    region"), **Revert region to original pixels**, a **Convert to chart** action, and typo flags in Review mode.
 5. Renderer/editor support for the new connector element and presets (select, move endpoints, arrowheads).
 6. Exporter updates for connectors and presets (§5).
