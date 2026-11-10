@@ -27,6 +27,8 @@ export type ImportReport = {
   warnings: ImportWarning[];
   /** Elements created, by type, for the summary. */
   counts: Record<string, number>;
+  /** 1-based numbers of slides that came in as a picture with nothing editable on them. */
+  pictureOnlySlides: number[];
 };
 
 export type ImportResult = { deck: Deck; report: ImportReport };

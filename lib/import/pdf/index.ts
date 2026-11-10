@@ -12,6 +12,7 @@
 import type { Deck, Slide, TextElement } from "@/lib/deck/schema";
 import { DeckSchema } from "@/lib/deck/schema";
 import { newId } from "@/lib/deck/commands";
+import { formatSlideRanges, pictureOnlySlides } from "../summary";
 import { ImportError, MAX_PAGES, throwIfAborted, type ImportOptions, type ImportResult, type ImportWarning } from "../types";
 import { eraseBoxes, groupBlocks, groupLines, inkColor, mapFontName, ringColor, rotatedRingColor, type TextItem } from "./layout";
 
@@ -53,6 +54,8 @@ export async function importPdf(data: ArrayBuffer | Uint8Array, fileName: string
   const port = new pdfjs.PDFWorker({ port: worker as unknown as null });
   const warnings: ImportWarning[] = [];
   const counts: Record<string, number> = {};
+  /** Pages with no text layer; summarised in one warning after the loop instead of one per page. */
+  const scannedPages: number[] = [];
   const warn = (message: string, slide?: number) => {
     if (!warnings.some((w) => w.message === message && w.slide === slide)) warnings.push({ slide, message });
   };
@@ -196,7 +199,7 @@ export async function importPdf(data: ArrayBuffer | Uint8Array, fileName: string
       }
 
       if (eraseBoxesPx.length === 0 && eraseRotated.length === 0) {
-        warn("This page has no text layer (it looks scanned). It was imported as an image; turning scanned text into editable text needs OCR, which the server importer will provide.", n);
+        scannedPages.push(n);
       } else {
         eraseBoxes(px, canvas.width, canvas.height, eraseBoxesPx, 2 * ratio);
         ctx.putImageData(image, 0, 0);
@@ -226,6 +229,9 @@ export async function importPdf(data: ArrayBuffer | Uint8Array, fileName: string
         elements,
       });
       page.cleanup();
+    }
+    if (scannedPages.length > 0 && scannedPages.length < total) {
+      warn(`${scannedPages.length === 1 ? "Page" : "Pages"} ${formatSlideRanges(scannedPages)} ${scannedPages.length === 1 ? "has" : "have"} no text layer (${scannedPages.length === 1 ? "it looks" : "they look"} scanned), so ${scannedPages.length === 1 ? "it was" : "they were"} imported as ${scannedPages.length === 1 ? "an image" : "images"}. Making that text editable needs OCR, which the server importer will provide.`);
     }
     if (slides.some((s) => s.elements.length)) {
       warn("Pictures and drawings stay part of each slide's background image; text was lifted off it and is editable.");
@@ -259,7 +265,7 @@ export async function importPdf(data: ArrayBuffer | Uint8Array, fileName: string
       source: { kind: "pdf", fileId: fileName, pageCount: doc.numPages },
     });
     onProgress?.({ stage: "done", current: total, total });
-    return { deck, report: { sourceKind: "pdf", fileName, warnings, counts } };
+    return { deck, report: { sourceKind: "pdf", fileName, warnings, counts, pictureOnlySlides: pictureOnlySlides(deck) } };
   } finally {
     await task.destroy().catch(() => {});
     port.destroy();

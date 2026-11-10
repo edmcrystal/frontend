@@ -2,6 +2,7 @@
  * PowerPoint (.pptx) → Deck, entirely from the file's XML ("native" import):
  * text stays text, shapes stay shapes, charts keep their data.
  */
+import { pictureOnlySlides } from "../summary";
 import { DeckSchema, type Deck, type Element, type Fill, type Slide, type Theme } from "@/lib/deck/schema";
 import { newId } from "@/lib/deck/commands";
 import { attr, child, children, find, findAll, numAttr, path, relAttr, type XNode } from "../xml";
@@ -202,5 +203,5 @@ export async function importPptx(data: ArrayBuffer | Uint8Array, fileName: strin
     source: { kind: "pptx", fileId: fileName, pageCount: slides.length },
   });
   onProgress?.({ stage: "done", current: slides.length, total: slides.length });
-  return { deck, report: { sourceKind: "pptx", fileName, warnings: deckCtx.warnings, counts: deckCtx.counts } };
+  return { deck, report: { sourceKind: "pptx", fileName, warnings: deckCtx.warnings, counts: deckCtx.counts, pictureOnlySlides: pictureOnlySlides(deck) } };
 }

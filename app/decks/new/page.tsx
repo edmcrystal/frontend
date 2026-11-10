@@ -14,7 +14,7 @@ export default function NewDeckPage() {
         <div className={styles.header}>
           <div>
             <h1 className={styles.h1}>Import a deck</h1>
-            <p className={styles.muted}>Every slide becomes editable: text, shapes, pictures, tables and charts.</p>
+            <p className={styles.muted}>Text, shapes, pictures, tables and charts in the file become editable. Slides that are only images stay pictures.</p>
           </div>
         </div>
         <Uploader />

@@ -289,7 +289,7 @@ All mutating calls carry the existing CSRF header. Rate-limit per user. Idempote
 
 ## 7. Frontend work (this repo)
 
-1. **Fix the misleading import report first** (ships in Phase 0, independent of the server): a single deck-level
+1. ~~**Fix the misleading import report first**~~ **Done** (independent of the server; see `lib/import/summary.ts`): a single deck-level
    message such as "0 of 14 slides have editable text, this PDF contains only images", no repeated per-page
    warnings, and no "everything below is editable" line when nothing is.
 2. `lib/import/server.ts`: same `importFile` signature, uploads, follows SSE, assembles the `Deck` as slides arrive
@@ -406,7 +406,7 @@ Phase 1 (editable text over a clean plate); the "Codia-like" result for diagrams
 
 ## 13. First two weeks, concretely
 
-1. Ship the import-report fix (§7.1) in the existing browser importer.
+1. ~~Ship the import-report fix (§7.1) in the existing browser importer.~~ Done.
 2. Build the eval harness: image + `Deck` JSON in, metrics out; wire the synthetic generator (PPTX → Deck → PNG → degrade).
 3. Extract the 14 source images from the example PDF at native resolution; hand-annotate slides 1, 2, 4, 6, 8 and 13 first.
 4. Run the OCR, layout-detection, inpainting and vision-LLM spikes on those slides and the synthetic set; fill a

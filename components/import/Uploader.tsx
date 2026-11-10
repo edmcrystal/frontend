@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
+import { describeOutcome } from "@/lib/import/summary";
 import { ACCEPT_ATTRIBUTE, ACCEPTED_EXTENSIONS, ImportError, importFile, type ImportProgress, type ImportReport } from "@/lib/import";
 import { putDeck } from "@/lib/deck/library";
 import styles from "./import.module.css";
@@ -64,14 +65,18 @@ function ReportView({ state, onOpen, onAnother }: { state: Extract<State, { kind
   const openRef = useRef<HTMLButtonElement>(null);
   useEffect(() => openRef.current?.focus(), []);
   const counts = Object.entries(report.counts).filter(([k, n]) => n > 0 && COUNT_LABEL[k]);
+  const outcome = describeOutcome(report, state.title, state.slideCount);
   return (
     <div className={styles.panel}>
       <div>
-        <strong style={{ fontSize: 18 }}>Imported “{state.title}”</strong>
-        <p className={styles.muted}>
-          From {report.fileName} · everything below is editable.
-        </p>
+        <strong style={{ fontSize: 18 }}>{outcome.headline}</strong>
+        <p className={styles.muted}>{outcome.summary}</p>
       </div>
+      {outcome.advice && (
+        <p className={styles.notice} role={outcome.tone === "none" ? "alert" : "status"}>
+          {outcome.advice}
+        </p>
+      )}
       {counts.length > 0 && (
         <div className={styles.counts}>
           {counts.map(([k, n]) => (
