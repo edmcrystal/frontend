@@ -29,10 +29,22 @@ importer for everything else: scanned documents, screenshots, AI-generated slide
 | Block arrows, connectors, cylinders | Picture | Editable shapes where they fit cleanly; traced vector paths otherwise |
 | Illustrations (the hex globe), UI screenshots | Picture | Separate movable image objects with transparency |
 | Stacked bar chart (slide 4) | Picture | Native chart when the data can be recovered, else shapes |
+| Map screenshots and dense data pictures in cards (slides 5, 6, 11) | Picture | Separate movable pictures. Text and controls *inside* them stay part of the picture |
+| Tables with filled header cells (slide 8) | Picture | Editable table. A tiny table drawn inside an illustration (slide 10) stays a picture |
+| Icon sets in cards (slides 7, 11, 13) | Picture | Separate icon cut-outs (or traced paths), grouped with their card |
+| Hub diagram: ring, diagonal block arrows, corner-bracket cards (slide 13) | Picture | Editable ring, rotated arrows and cards, grouped |
+| Mixed styles inside one line (bold lead-ins on slides 9/13, monospace inside a sentence on slide 6, coloured code tokens) | Picture | One text box with per-run font family, weight and colour |
+| URLs such as `bit.ly/GeocodingSprint` (slide 14) | Picture | Text with a link attached |
+| Soft drop shadows on cards (slides 7, 9, 11) | Picture | Optional shadow property on the shape, or dropped cleanly |
+| Footer brand mark, same place on all 14 slides | Picture | Left in the background by default; not turned into 14 text boxes |
+| Faint line art behind or across titles (slides 1, 14) | Picture | Stays in the background; the title is painted out of it cleanly |
 | Paper-texture background | Picture with text still baked in | Clean background with text, shapes and figures removed |
 
 Expectations to set with users: OCR copies typos that are baked into the image ("Develloper's", "sdo_lonlati").
 At 72 ppi, small text reads less reliably. Faded decorative text behind illustrations (slide 1) should be left alone.
+Text that is part of a screenshot or tiny illustration (slides 6, 10, 12) is deliberately *not* extracted.
+Fonts differ from slide to slide in this deck (light, regular and bold sans-serifs, a monospace for code), so a
+deck-level pass is needed to unify them (Stage 8).
 
 ---
 
@@ -81,10 +93,12 @@ Browser (this repo)                       Server
 External (behind provider interfaces): vision-capable LLM, optional cloud OCR, optional image upscaler
 ```
 
-- **Hybrid by page**: the browser already classifies pages. Pages with a text layer stay on the client path, which
-  is free and fast. Only flat pages go to the server. A mixed PDF produces one deck from both paths.
+- **Hybrid by page**: pages with a text layer stay on the client path, which is free and fast. Only flat pages go to
+  the server. A mixed PDF produces one deck from both paths. (Today the client only discovers that a page is flat
+  after fully rendering it; routing needs a cheap per-page text-layer check first. See §7.2.)
 - **Same contract**: the server returns the same `Deck` and import report, and emits the same progress events
-  (`lib/import/types.ts`). `importFile` gains one branch; the upload UI does not change.
+  (`lib/import/types.ts`). `importFile` gains one branch and the same signature. The uploader gains an option for
+  scanned pages and a mode selector (§7.2), but the rest of the import flow is unchanged.
 - **Per-page tasks** run in parallel. Each finished slide is sent with a `slide_ready` event, so the editor opens
   slide 1 while slide 14 is still processing.
 - **Everything is cached** by content hash of the page image + settings + model versions, so re-converting a slide
@@ -104,7 +118,7 @@ Docker with GPU workers (a single mid-range inference GPU to start).
   resampling blur.
 - If the page has several images (e.g. a scan split into tiles), composite them in page order.
 - Normalise colour space, orientation and DPI metadata. Reject encrypted files, enforce size and page limits.
-- Record the original image as `slide.sourceImage` (needed for compare, revert and the verify loop).
+- Store the original image as an asset and set `slide.sourceImageId` (needed for compare, revert and the verify loop).
 
 ### Stage 1: Preprocess
 - Deskew and perspective-correct (only for camera scans; digital-born images skip this).
@@ -159,7 +173,11 @@ Docker with GPU workers (a single mid-range inference GPU to start).
   (the code snippets behind the globe on slide 1) is classed as decoration and left in the plate. Rule: OCR
   confidence × contrast × not-occluded; threshold tuned on the gold set.
 - **Text inside pictures is not extracted:** if a text line lies inside a `screenshot`/`figure` region (the dashboard
-  mock-up on slide 3), it stays part of that picture.
+  mock-up on slide 3, the map controls on slide 6, the API list on slide 12), it stays part of that picture. The same
+  applies to text too small to be reliable (roughly under 6 px x-height in the source image); report the count.
+- **Repeated marks across slides:** an element whose crop appears at the same position on several slides (the
+  footer brand mark on all 14 pages, page numbers, watermarks) is classed `footer`/`logo`. By default it is left in
+  the background, not turned into a text box on every slide. A per-deck setting can extract it as a movable logo.
 
 ### Stage 4: Rebuild text
 - **Grouping:** lines → paragraphs (gap, indent and alignment heuristics) → text boxes (XY-cut, shared alignment axis).
@@ -172,13 +190,18 @@ Docker with GPU workers (a single mid-range inference GPU to start).
   web-loadable fonts (Google Fonts), with a monospace detector for code. Keep the matched family only if its
   rendered width is within ±3% of the observed width; otherwise adjust letter-spacing slightly rather than
   letting the line re-wrap.
+- **Per-run styling:** family, weight and colour are decided per run, not per line: a bold lead-in followed by regular
+  text (slides 9, 13), monospace terms inside a proportional sentence (slide 6), keyword colours in code.
+- **Links:** URLs and `[bit.ly/…]` strings are detected and stored as `Run.link` (the user can remove them).
 - **Alignment:** left/centre/right inferred from the clustering of line starts, centres and ends within a block.
 - **Typography check:** fit each text box so that, rendered by our renderer, line breaks match the source
   (verified in Stage 8).
 
 ### Stage 5: Rebuild shapes, connectors and figures
 - **Shapes (A):** preset + fill colour (median of the interior after text removal) + stroke colour/width/dash.
-  Add presets `cylinder`, `hexagon`, `cloud`, `block-arrow-up/down/left` and a connector element (§7).
+  Add presets `cylinder`, `hexagon`, `cloud`, `ring`, `block-arrow-up/down/left` (diagonal arrows use rotation)
+  and a connector element (§5). Soft drop shadows are estimated from the pixels just outside a card's edge and
+  stored as an optional `shadow`; if the user turns shadows off, they are simply not drawn.
 - **Connectors:** polyline path with optional arrowheads and dash style; endpoints snapped to the nearest shape
   edge when within tolerance and stored as `from/to` element ids so they follow when a box moves.
 - **Vector trace (B):** colour-quantised tracing (VTracer or potrace-style) to a small number of `path` shapes.
@@ -196,6 +219,8 @@ Docker with GPU workers (a single mid-range inference GPU to start).
   - textured (the paper grain here), photo, complex art: an inpainting model (LaMa-class, ONNX on GPU, OpenCV
     Telea as the CPU fallback);
   - shapes whose fill is known: fill with the shape colour, since the shape element will redraw it.
+- Text that crosses decorative line art (the title over the wireframe on slide 14) is the hard case for flat fills:
+  use the inpainting model there and check it in the verify loop.
 - Result: one clean **background plate** per slide, saved as an asset and set as `slide.background`.
 - Known weak spot (also true of today's browser importer): erasing over gradients/photos leaves visible patches.
   The inpainting model plus the verify loop (Stage 8) is the fix.
@@ -221,6 +246,11 @@ Docker with GPU workers (a single mid-range inference GPU to start).
    shape route (A→B→C); fall back to leaving the region in the plate (D). Maximum two passes per slide to bound cost.
 5. Store the final diff map; it powers the "Compare with original" slider and Review highlights in the editor.
 
+**Deck-level pass (after all slides finish):** cluster text styles across slides. Titles that differ by a few
+percent in size become one size, and the dominant heading and body families become `theme.fonts`, with a
+"Unify fonts" action offered where slides disagree. Repeated positions (title, footer) are recorded as layout
+hints, which later feed real slide layouts.
+
 ---
 
 ## 5. Data model changes (frontend + backend, agreed first)
@@ -229,9 +259,10 @@ Small, backwards-compatible additions to `lib/deck/schema.ts` (and the generated
 
 | Addition | Why |
 |---|---|
-| `PRESET_SHAPES += cylinder, hexagon, cloud, block-arrow-up/down/left` | Diagrams like slides 2–3 |
+| `PRESET_SHAPES += cylinder, hexagon, cloud, ring, block-arrow-up/down/left` | Diagrams like slides 2, 3, 9, 13 |
+| `ShapeElement.shadow?` (offset, blur, colour) | Card shadows (slides 7, 9, 11); exporter maps it to PowerPoint shadow |
 | `ConnectorElement { points, arrowStart, arrowEnd, stroke, from?, to? }` | Arrows and lines that stay attached to boxes |
-| `Slide.sourceImageId` + asset kind for it | Compare slider, revert-to-original, verify loop |
+| `Slide.sourceImageId` (asset id) | Compare slider, revert-to-original, verify loop |
 | `provenance.route: "shape" \| "trace" \| "cutout" \| "plate"` and `provenance.fitError` | Review mode, per-slide re-convert, metrics |
 | `ShapeElement.paragraphs` already exists | Used for text inside boxes (no change) |
 | `Slide.warnings[]` (optional) | Per-slide notes such as "2 regions left as picture" |
@@ -263,7 +294,9 @@ All mutating calls carry the existing CSRF header. Rate-limit per user. Idempote
    warnings, and no "everything below is editable" line when nothing is.
 2. `lib/import/server.ts`: same `importFile` signature, uploads, follows SSE, assembles the `Deck` as slides arrive
    (reusing `lib/api/sse.ts` and `client.ts`). `importFile` routes flat pages to it; the uploader shows an option
-   ("Convert scanned pages with AI", with the privacy note) and a mode selector.
+   ("Convert scanned pages with AI", with the privacy note) and a mode selector. Two prerequisites: a cheap
+   per-page text-layer check (`getTextContent` without rendering) so flat pages can be identified before upload, and
+   page-order assembly of client and server slides into one deck with a shared slide size.
 3. Streaming import: open the editor on the first `slide_ready`; mark pending slides with a spinner thumbnail.
 4. **Compare with original** (slider/overlay using `sourceImage`), **Re-convert slide** menu (mode + "only this
    region"), **Revert region to original pixels**, a **Convert to chart** action, and typo flags in Review mode.
@@ -282,8 +315,9 @@ Degradations: downsample to 72–150 ppi, JPEG artefacts, blur, paper/grain text
 This gives exact boxes, text, fonts, sizes, colours and shapes for thousands of slides at no labelling cost.
 
 ### 8.2 Gold set
-- ~50 real flattened slides including this PDF (with the owner's permission), hand-annotated: text lines, shapes,
-  connectors, figures, groups, decorative regions. Split in half: tune on one half, report on the other.
+- ~50 real flattened slides including all 14 pages of this PDF (with the owner's permission), hand-annotated: text
+  lines, shapes, connectors, figures, groups, decorative regions. Start with slides 1, 2, 4, 6, 8 and 13, which
+  between them cover the cover, diagram, chart, code/screenshot, table and hub cases. Split in half: tune on one half, report on the other.
 - Annotate with our own editor (a "draw the correct Deck" mode) so the annotations are already in the target format.
 
 ### 8.3 Metrics (all computed in CI on the gold + synthetic sets)
@@ -374,7 +408,7 @@ Phase 1 (editable text over a clean plate); the "Codia-like" result for diagrams
 
 1. Ship the import-report fix (§7.1) in the existing browser importer.
 2. Build the eval harness: image + `Deck` JSON in, metrics out; wire the synthetic generator (PPTX → Deck → PNG → degrade).
-3. Extract the 14 source images from the example PDF at native resolution; hand-annotate slides 1–4 as the first gold items.
+3. Extract the 14 source images from the example PDF at native resolution; hand-annotate slides 1, 2, 4, 6, 8 and 13 first.
 4. Run the OCR, layout-detection, inpainting and vision-LLM spikes on those slides and the synthetic set; fill a
    comparison table (accuracy, speed, memory, licence).
 5. Agree the schema additions (§5) and the API contract (§6) with the backend owner.
